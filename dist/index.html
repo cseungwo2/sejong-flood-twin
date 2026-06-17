@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>REDILab.UBFlooding</title>
+<link rel="stylesheet" as="style" crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<style>
+  :root{
+    --bg:#070b11; --panel:rgba(14,20,28,.74); --panel-solid:#0e141c;
+    --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.06);
+    --txt:#eaf1f8; --muted:#8499ad; --muted-2:#5f7488;
+    --accent:#37c2ff; --accent-2:#7ee0ff; --good:#46e3b1;
+    --shadow:0 16px 48px -16px rgba(0,0,0,.7);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--txt);
+    font-family:'Pretendard','Pretendard Variable','Malgun Gothic','Segoe UI',sans-serif;
+    -webkit-font-smoothing:antialiased; }
+  #app{ position:fixed; inset:0; background:radial-gradient(130% 100% at 50% 0%, #244a72 0%, #16314e 42%, #0a1422 100%); }
+
+  /* wordmark */
+  .brand{ display:flex; align-items:center; gap:9px; }
+  .brand .mark{ width:26px; height:26px; border-radius:7px; flex:none;
+    background:conic-gradient(from 210deg,#37c2ff,#7ee0ff,#46e3b1,#37c2ff);
+    box-shadow:0 0 0 1px rgba(255,255,255,.15) inset, 0 4px 14px -4px #37c2ff88;
+    position:relative; }
+  .brand .mark::after{ content:""; position:absolute; inset:6px; border-radius:3px;
+    background:var(--panel-solid); box-shadow:0 0 0 1px rgba(255,255,255,.08) inset; }
+  .brand .wm{ font-size:18px; font-weight:800; letter-spacing:.2px; line-height:1; }
+  .brand .wm b{ color:#fff; } .brand .wm span{ color:var(--accent); font-weight:700; }
+  .brand .tag{ font-size:9.5px; letter-spacing:2.4px; color:var(--muted-2); margin-top:3px; font-weight:600; }
+
+  /* loading */
+  #loading{ position:fixed; inset:0; z-index:50; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:18px; background:var(--bg); }
+  #loading .brand{ transform:scale(1.25); }
+  #loading .bar{ width:300px; height:4px; background:rgba(255,255,255,.08); border-radius:99px; overflow:hidden; }
+  #loading .bar>i{ display:block; height:100%; width:5%; border-radius:99px;
+    background:linear-gradient(90deg,var(--accent),var(--accent-2)); transition:width .35s ease; }
+  #loading small{ color:var(--muted); font-size:12px; letter-spacing:.3px; }
+
+  /* HUD */
+  #hud{ position:fixed; top:16px; left:16px; z-index:20; width:284px;
+    background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    padding:16px 16px 14px; backdrop-filter:blur(14px) saturate(1.2); box-shadow:var(--shadow); }
+  #hud .head{ display:flex; flex-direction:column; gap:1px; padding-bottom:13px;
+    margin-bottom:13px; border-bottom:1px solid var(--line-2); }
+  #hud .sub{ color:var(--muted); font-size:11.5px; margin-top:7px; letter-spacing:.2px; }
+
+  .stats{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .card{ background:rgba(255,255,255,.035); border:1px solid var(--line-2); border-radius:11px; padding:9px 11px; }
+  .card .k{ font-size:10.5px; color:var(--muted); letter-spacing:.2px; }
+  .card .v{ font-size:18px; font-weight:700; margin-top:3px; color:#fff; font-variant-numeric:tabular-nums;
+    font-feature-settings:"tnum"; line-height:1.1; }
+  .card .v small{ font-size:11px; font-weight:600; color:var(--muted); margin-left:2px; }
+  .card.accent .v{ color:var(--accent-2); }
+
+  .sec{ font-size:10.5px; color:var(--muted-2); letter-spacing:1.4px; font-weight:700;
+    text-transform:uppercase; margin:15px 0 8px; }
+  .ramp{ height:9px; border-radius:99px; border:1px solid var(--line-2);
+    background:linear-gradient(90deg,#7fe9ff,#2e9bff,#0b46c0,#06205c); }
+  .ramp-ends{ display:flex; justify-content:space-between; font-size:10px; color:var(--muted-2); margin-top:4px; }
+
+  .ovr{ display:flex; flex-direction:column; gap:6px; }
+  .ovr button{ display:flex; align-items:center; gap:9px; width:100%; text-align:left;
+    background:rgba(255,255,255,.03); color:var(--txt); border:1px solid var(--line);
+    border-radius:9px; padding:8px 10px; font-size:12px; cursor:pointer; transition:.15s; }
+  .ovr button::before{ content:""; width:9px; height:9px; border-radius:3px; flex:none;
+    background:var(--dot,#888); box-shadow:0 0 8px -1px var(--dot,#888); }
+  .ovr button:hover{ background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.2); }
+  .ovr button.on{ background:rgba(55,194,255,.14); border-color:var(--accent); color:#fff; }
+
+  /* dock */
+  #dock{ position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:20;
+    width:min(760px,94vw); background:var(--panel); border:1px solid var(--line);
+    border-radius:18px; padding:15px 22px 16px; backdrop-filter:blur(14px) saturate(1.2); box-shadow:var(--shadow); }
+  #dock .dhead{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:11px; }
+  #dock .dlab{ font-size:12.5px; color:var(--muted); letter-spacing:.3px; font-weight:600; }
+  #dock .dlab b{ color:var(--txt); font-weight:700; }
+  #dock .big{ font-size:30px; font-weight:800; color:#fff; font-variant-numeric:tabular-nums; line-height:1; }
+  #dock .big span{ color:var(--accent); } #dock .big small{ font-size:14px; color:var(--muted); font-weight:600; }
+  #wl{ -webkit-appearance:none; appearance:none; width:100%; height:7px; border-radius:99px; outline:none;
+    background:linear-gradient(90deg,#123,#37c2ff); cursor:pointer; }
+  #wl::-webkit-slider-thumb{ -webkit-appearance:none; width:24px; height:24px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#fff,#bfe8ff); border:3px solid var(--accent);
+    box-shadow:0 3px 12px -2px #000a, 0 0 0 6px rgba(55,194,255,.14); cursor:pointer; }
+  .ticks{ display:flex; justify-content:space-between; font-size:10.5px; color:var(--muted-2); margin-top:7px; }
+  .chips{ display:flex; gap:7px; margin-top:12px; flex-wrap:wrap; }
+  .chips button{ background:rgba(255,255,255,.04); color:#cfe0f0; border:1px solid var(--line);
+    border-radius:99px; padding:6px 13px; font-size:11.5px; cursor:pointer; transition:.15s; font-weight:600; }
+  .chips button:hover{ background:var(--accent); color:#04101e; border-color:var(--accent); }
+
+  #hint{ position:fixed; right:16px; bottom:16px; z-index:20; font-size:11px; color:var(--muted);
+    background:var(--panel); border:1px solid var(--line); padding:7px 12px; border-radius:99px;
+    backdrop-filter:blur(10px); }
+  #hint b{ color:var(--txt); font-weight:600; }
+  #tip{ position:fixed; z-index:30; pointer-events:none; display:none; white-space:nowrap;
+    background:rgba(7,11,17,.92); border:1px solid var(--accent); color:#eaf6ff;
+    border-radius:8px; padding:6px 10px; font-size:12px; box-shadow:var(--shadow); }
+  .credit{ position:fixed; left:16px; bottom:16px; z-index:15; font-size:10px; color:var(--muted-2);
+    letter-spacing:.3px; }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="loading">
+    <div class="brand">
+      <div class="mark"></div>
+      <div><div class="wm"><b>REDI</b> <span>Lab</span></div><div class="tag">FLOOD DIGITAL TWIN</div></div>
+    </div>
+    <div class="bar"><i id="lbar"></i></div>
+    <small id="lmsg">데이터 로딩 중…</small>
+  </div>
+
+  <div id="hud">
+    <div class="head">
+      <div class="brand">
+        <div class="mark"></div>
+        <div><div class="wm"><b>REDI</b> <span>Lab</span></div><div class="tag">FLOOD DIGITAL TWIN</div></div>
+      </div>
+      <div class="sub">세종시 침수 디지털트윈 · 실시간 침수심 시뮬레이션</div>
+    </div>
+
+    <div class="stats">
+      <div class="card accent"><div class="k">수위 (EL)</div><div class="v" id="s-wl">–</div></div>
+      <div class="card accent"><div class="k">최대 침수심</div><div class="v" id="s-depth">–</div></div>
+      <div class="card"><div class="k">침수 건물</div><div class="v" id="s-bld">–</div></div>
+      <div class="card"><div class="k">침수 면적</div><div class="v" id="s-area">–</div></div>
+    </div>
+
+    <div class="sec">침수심 범례 (m)</div>
+    <div class="ramp"></div>
+    <div class="ramp-ends"><span>0</span><span id="lg-max">8+</span></div>
+
+    <div class="sec">공식 홍수위험지도 · 정부 공인</div>
+    <div class="ovr" id="overlays"></div>
+  </div>
+
+  <div id="dock">
+    <div class="dhead">
+      <span class="dlab"><b>침수심</b> 시뮬레이션 — 기준수위 위로 차오른 수심</span>
+      <span class="big"><span id="wl-val">0.0</span><small> m</small></span>
+    </div>
+    <input id="wl" type="range" min="0" max="100" step="0.1" value="0" />
+    <div class="ticks"><span>기준수위 · 강변 최저지반</span><span>침수 심화 →</span></div>
+    <div class="chips" id="presets"></div>
+  </div>
+
+  <div id="tip"></div>
+  <div id="hint"><b>좌클릭</b> 회전 · <b>우클릭</b> 이동 · <b>휠</b> 줌</div>
+  <div class="credit">DEM·건물·지적 기반 정적 bathtub 모델 · 위성 © Esri</div>
+
+  <script type="importmap">
+  { "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+    "earcut": "https://cdn.jsdelivr.net/npm/earcut@2.2.4/+esm"
+  }}
+  </script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

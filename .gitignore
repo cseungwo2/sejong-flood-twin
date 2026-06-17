@@ -1,0 +1,23 @@
+# ===== 대용량 데이터 (arcpy로 재생성되는 산출물 — git 제외) =====
+web/data/
+dist/data/
+
+# ===== ArcGIS 전처리 중간 산출물 =====
+prep/scratch.gdb/
+prep/*.tif
+prep/*.tif.ovr
+prep/*.tif.xml
+prep/*.ovr
+prep/*.vat.dbf
+prep/*.dbf
+
+# ===== 다운로드 바이너리 / 로그 =====
+cloudflared.exe
+tunnel.log
+tunnel.log.out
+
+# ===== OS / 에디터 잡파일 =====
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.tmp
