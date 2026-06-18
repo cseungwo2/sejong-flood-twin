@@ -169,11 +169,12 @@ function main({ tmeta, theights, hand, bgeo }) {
         gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0); }`,
     fragmentShader:`
       precision highp float; varying float vDepth; uniform float uDeepRef;
-      void main(){ if(vDepth<=0.02) discard;
+      void main(){ if(vDepth<=0.0) discard;
         float t=clamp(vDepth/uDeepRef,0.0,1.0);
         vec3 shallow=vec3(0.50,0.89,1.0), deep=vec3(0.02,0.13,0.40);
         vec3 c=mix(shallow,deep,t);
-        float a=mix(0.45,0.80,t);
+        float edge=smoothstep(0.0,0.35,vDepth);   // 얕은 가장자리 부드럽게 페이드(어색함 완화)
+        float a=mix(0.42,0.82,t)*edge;
         gl_FragColor=vec4(c,a); }`,
   });
   const water=new THREE.Mesh(wg,waterMat); water.renderOrder=2; scene.add(water);
@@ -187,8 +188,11 @@ function main({ tmeta, theights, hand, bgeo }) {
   }
   function sampleHand(lon,lat){ const [i,j]=gridIJ(lon,lat); const hd=hand[j*nx+i]; return hd>=99998? 1e6 : hd; }
   function sampleTerr(lon,lat){ const [i,j]=gridIJ(lon,lat); const v=theights[j*nx+i]; return v<=NODATA+1? zmin : v; }
-  const positions=[], normals=[], gzv=[], drainv=[]; const bGz=[], bHand=[]; const bcx=[], bcz=[]; let bMinX=1e18,bMaxX=-1e18,bMinZ=1e18,bMaxZ=-1e18;
-  function addBuilding(rings, gz, h, drainElev){
+  // 건물 용도(USABILITY 건축법 별표1) → 카테고리(도시계획 표준색). 0:미상 1:주거 2:상업·근생 3:공업 4:물류 5:농업 6:공공
+  const USE_CAT={'01000':1,'02000':1,'03000':2,'04000':2,'05000':6,'06000':6,'07000':2,'08000':6,'09000':6,'10000':6,'11000':6,'12000':6,'13000':6,'14000':2,'15000':2,'16000':2,'17000':3,'18000':4,'19000':3,'20000':4,'21000':5,'22000':4,'23000':6,'24000':6,'25000':3,'26000':0,'27000':2,'28000':6,'29000':5,'30000':0};
+  const CAT_NAME=['용도 미상','주거','상업·근생','공업','창고·물류','농업·동식물','공공·교육'];
+  const positions=[], normals=[], gzv=[], drainv=[], usecatv=[]; const bGz=[], bHand=[]; const bcx=[], bcz=[]; let bMinX=1e18,bMaxX=-1e18,bMinZ=1e18,bMaxZ=-1e18;
+  function addBuilding(rings, gz, h, drainElev, cat){
     // rings: array of [ [x,z],... ]; ring0 exterior, rest holes (already local meters)
     const gzs=gz*VE, top=(gz+h)*VE, base=(gz-5)*VE;   // base를 지반보다 낮춰 지형에 묻히지 않게
     const dr=drainElev*VE;                            // 이 건물의 하천기준 수면 시작고도(VE)
@@ -198,7 +202,7 @@ function main({ tmeta, theights, hand, bgeo }) {
     const tris=earcut(flat, holes.length?holes:null, 2);
     // top cap
     for(let t=0;t<tris.length;t+=3){
-      for(const vi of [tris[t],tris[t+1],tris[t+2]]){ positions.push(flat[vi*2], top, flat[vi*2+1]); normals.push(0,1,0); gzv.push(gzs); drainv.push(dr); }
+      for(const vi of [tris[t],tris[t+1],tris[t+2]]){ positions.push(flat[vi*2], top, flat[vi*2+1]); normals.push(0,1,0); gzv.push(gzs); drainv.push(dr); usecatv.push(cat); }
     }
     // side walls
     rings.forEach(r=>{
@@ -206,7 +210,7 @@ function main({ tmeta, theights, hand, bgeo }) {
         const a=r[s], b=r[s+1];
         const dx=b[0]-a[0], dz=b[1]-a[1]; const L=Math.hypot(dx,dz)||1; const nxn=dz/L, nzn=-dx/L;
         const q=[[a[0],base,a[1]],[b[0],base,b[1]],[b[0],top,b[1]], [a[0],base,a[1]],[b[0],top,b[1]],[a[0],top,a[1]]];
-        for(const v of q){ positions.push(v[0],v[1],v[2]); normals.push(nxn,0,nzn); gzv.push(gzs); drainv.push(dr); }
+        for(const v of q){ positions.push(v[0],v[1],v[2]); normals.push(nxn,0,nzn); gzv.push(gzs); drainv.push(dr); usecatv.push(cat); }
       }
     });
     bGz.push(gz); bHand.push(gz-drainElev);   // 건물 HAND = 지반 - 수면시작고도
@@ -214,7 +218,7 @@ function main({ tmeta, theights, hand, bgeo }) {
   let nb=0;
   for(const f of bgeo.features){
     const g=f.geometry; if(!g) continue;
-    const gz=+(f.properties.gz||zmin); const h=+(f.properties.h||3);
+    const h=+(f.properties.h||3); const cat=USE_CAT[(f.properties.use||'').trim()]||0;
     const polys = g.type==='Polygon' ? [g.coordinates] : g.type==='MultiPolygon' ? g.coordinates : [];
     for(const poly of polys){
       const r0=poly[0]; let slon=0,slat=0; for(const c of r0){ slon+=c[0]; slat+=c[1]; }
@@ -225,7 +229,7 @@ function main({ tmeta, theights, hand, bgeo }) {
         // ensure closed
         if(out.length>1){ const a=out[0],b=out[out.length-1]; if(a[0]!==b[0]||a[1]!==b[1]) out.push([a[0],a[1]]); }
         return out; });
-      if(rings[0] && rings[0].length>=4){ addBuilding(rings,ground,h, ground-handB);
+      if(rings[0] && rings[0].length>=4){ addBuilding(rings,ground,h, ground-handB, cat);
         let sx=0,sz=0; for(const p of rings[0]){ sx+=p[0]; sz+=p[1];
           bMinX=Math.min(bMinX,p[0]); bMaxX=Math.max(bMaxX,p[0]); bMinZ=Math.min(bMinZ,p[1]); bMaxZ=Math.max(bMaxZ,p[1]); }
         bcx.push(sx/rings[0].length); bcz.push(sz/rings[0].length);
@@ -238,18 +242,28 @@ function main({ tmeta, theights, hand, bgeo }) {
   bg.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
   bg.setAttribute('aGz',new THREE.Float32BufferAttribute(gzv,1));
   bg.setAttribute('aDrain',new THREE.Float32BufferAttribute(drainv,1));
+  bg.setAttribute('aUseCat',new THREE.Float32BufferAttribute(usecatv,1));
+  // 카테고리 색(도시계획 표준): 미상=회색, 주거=노랑, 상업=빨강, 공업=보라, 물류=연보라, 농업=초록, 공공=파랑
+  const CAT_COL=[new THREE.Vector3(0.60,0.64,0.69),new THREE.Vector3(1.0,0.85,0.30),new THREE.Vector3(0.91,0.33,0.30),
+                 new THREE.Vector3(0.61,0.44,0.71),new THREE.Vector3(0.74,0.64,0.82),new THREE.Vector3(0.50,0.78,0.42),
+                 new THREE.Vector3(0.31,0.64,0.88),new THREE.Vector3(0.42,0.79,0.75)];
   const bldMat=new THREE.ShaderMaterial({
-    uniforms:{ uS:{value:0.0}, uDeepRef:{value:8.0*VE}, uLight:{value:new THREE.Vector3(-0.6,1,0.4).normalize()} },
+    uniforms:{ uS:{value:0.0}, uDeepRef:{value:8.0*VE}, uLight:{value:new THREE.Vector3(-0.6,1,0.4).normalize()},
+               uUseMode:{value:0.0}, uPal:{value:CAT_COL} },
     side:THREE.DoubleSide,   // 지붕/벽 삼각형 뒷면 컬링 방지(지붕 안 덮히는 문제 해결)
     vertexShader:`
-      attribute float aGz; attribute float aDrain; uniform float uS; varying float vY; varying float vWl; varying vec3 vN;
-      void main(){ vY=position.y; vWl=aDrain+uS;       // 이 건물의 침수 수면고도 = 하천기준고도 + 상승량
+      attribute float aGz; attribute float aDrain; attribute float aUseCat; uniform float uS;
+      varying float vY; varying float vWl; varying float vCat; varying vec3 vN;
+      void main(){ vY=position.y; vWl=aDrain+uS; vCat=aUseCat;
         vN=normalize(normalMatrix*normal);
         gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
     fragmentShader:`
-      precision highp float; varying float vY; varying float vWl; varying vec3 vN; uniform float uDeepRef; uniform vec3 uLight;
+      precision highp float; varying float vY; varying float vWl; varying float vCat; varying vec3 vN;
+      uniform float uDeepRef; uniform vec3 uLight; uniform float uUseMode; uniform vec3 uPal[8];
       void main(){ float sh=0.45+0.55*clamp(dot(normalize(vN),uLight),0.0,1.0);
-        vec3 base=vec3(0.78,0.80,0.85)*sh;
+        vec3 dft=vec3(0.78,0.80,0.85);
+        vec3 ucol=uPal[int(vCat+0.5)];
+        vec3 base=mix(dft, ucol, uUseMode)*sh;     // 용도색 토글
         if(vY<vWl){ float d=clamp((vWl-vY)/uDeepRef,0.0,1.0);
           vec3 wcol=mix(vec3(0.35,0.75,0.95),vec3(0.05,0.20,0.55),d);
           base=mix(base, wcol*sh, 0.78); }
@@ -282,13 +296,13 @@ function main({ tmeta, theights, hand, bgeo }) {
 
   // ---- slider ---- 슬라이더 = 하천 수면이 평소보다 차오른 높이(m). 국가/지방/소하천 동시 적용
   const wl=$('#wl');
-  wl.min=0; wl.max=7; wl.step=0.05;   // 0~7m: 국내 극한 도시침수(오송 미호강 ~6m)+여유, 0.05m 미세조정
+  wl.min=0; wl.max=15; wl.step=0.05;   // 0~15m (극한 대비), 0.05m 미세조정
   const qwl=parseFloat(new URLSearchParams(location.search).get('wl'));
   wl.value=isFinite(qwl)?Math.min(qwl,+wl.max):0;
   $('#lg-max').textContent = '8+';
 
-  function update(){
-    const S=+wl.value;                // 슬라이더 = 하천 위로 차오른 수심(m)
+  let targetS=0, dispS=0;
+  function applyS(S){                 // 실제 적용(수위 S에서 셰이더·통계 갱신)
     waterMat.uniforms.uS.value=S*VE; bldMat.uniforms.uS.value=S*VE;
     $('#wl-val').textContent=S.toFixed(1);
     $('#s-wl').textContent='하천 +'+S.toFixed(1)+' m';
@@ -299,10 +313,12 @@ function main({ tmeta, theights, hand, bgeo }) {
     $('#s-depth').textContent=maxD>0?maxD.toFixed(1)+' m':'–';
     $('#s-area').textContent=areaKm2.toFixed(2)+' km²';
   }
+  function update(){ targetS=+wl.value; }   // 목표 수위만 갱신 → 루프에서 부드럽게 수렴(갑자기 띵 방지)
   wl.addEventListener('input',update);
+  applyS(0);
 
   // presets
-  const presets=[['평상시',0],['0.3 m',0.3],['0.5 m',0.5],['1 m',1],['2 m',2],['3 m',3]];
+  const presets=[['평상시',0],['0.5 m',0.5],['1 m',1],['3 m',3],['6 m',6],['10 m',10]];
   const pc=$('#presets');
   presets.forEach(([lab,v])=>{ const b=document.createElement('button'); b.textContent=lab;
     b.onclick=()=>{ wl.value=Math.min(v,+wl.max); update(); }; pc.appendChild(b); });
@@ -383,10 +399,12 @@ function main({ tmeta, theights, hand, bgeo }) {
     mouse.x=(e.clientX/innerWidth)*2-1; mouse.y=-(e.clientY/innerHeight)*2+1;
     ray.setFromCamera(mouse,camera); const hit=ray.intersectObject(buildings,false)[0];
     if(hit){ const at=hit.object.geometry.attributes, fa=hit.face.a;
-      const ag=at.aGz.array[fa], adr=at.aDrain.array[fa];        // 지반고·하천기준수면고도(VE)
-      const base=ag/VE, d=(waterMat.uniforms.uS.value - ag + adr)/VE;   // 침수심 = 상승량 - HAND
+      const ag=at.aGz.array[fa], adr=at.aDrain.array[fa];
+      const cat=at.aUseCat?(at.aUseCat.array[fa]|0):0;
+      const base=ag/VE, d=(waterMat.uniforms.uS.value - ag + adr)/VE;
       tip.style.display='block'; tip.style.left=(e.clientX+12)+'px'; tip.style.top=(e.clientY+12)+'px';
-      tip.textContent= d>0 ? `침수 ≈ ${d.toFixed(1)} m 잠김 · 지반높이 ${base.toFixed(0)}m` : `안 잠김 · 지반높이 ${base.toFixed(0)}m`;
+      const dep = d>0 ? `침수 ${d.toFixed(1)}m 잠김` : `안 잠김`;
+      tip.textContent= `${CAT_NAME[cat]||'용도 미상'} · ${dep} · 지반 ${base.toFixed(0)}m`;
     } else tip.style.display='none';
   });
 
@@ -498,13 +516,65 @@ function main({ tmeta, theights, hand, bgeo }) {
     const b=document.createElement('button'); b.textContent=lab; b.style.setProperty('--dot',c);
     b.onclick=()=>{ grp.visible=!grp.visible; b.classList.toggle('on',grp.visible); }; lb.appendChild(b); });
 
+  // ---- 교량·고가도로 (OSM, 양끝 지형고 직선연결 → 도로에 이어지고 강/계곡 위로 부상) ----
+  let bridgeMesh=null, bridgeData=null;
+  async function toggleBridges(btn){
+    if(bridgeMesh){ scene.remove(bridgeMesh); bridgeMesh.geometry.dispose(); bridgeMesh.material.dispose(); bridgeMesh=null; btn.classList.remove('on'); return; }
+    btn.classList.add('on'); const orig=btn.textContent; btn.textContent='…';
+    if(!bridgeData) bridgeData=await fetch('./data/bridges.json').then(r=>r.json());
+    const pos=[], nor=[], idx=[]; let off=0;
+    for(const br of bridgeData.bridges){
+      const cs=br.coords; if(cs.length<2) continue; const hw=(br.w||8)*0.5;
+      const wpts=cs.map(c=>{ const [x,n]=proj.fwd(c[0],c[1]); return [x,-n]; });
+      let total=0; const dist=[0];
+      for(let i=1;i<wpts.length;i++){ total+=Math.hypot(wpts[i][0]-wpts[i-1][0],wpts[i][1]-wpts[i-1][1]); dist.push(total); }
+      const e0=sampleTerr(cs[0][0],cs[0][1]), e1=sampleTerr(cs[cs.length-1][0],cs[cs.length-1][1]);
+      for(let i=0;i<wpts.length;i++){
+        const f=total?dist[i]/total:0, y=(e0+(e1-e0)*f+1.0)*VE;   // 양끝 도로면 직선연결(+1m 노면)
+        const a=wpts[Math.max(0,i-1)], b=wpts[Math.min(wpts.length-1,i+1)];
+        let dx=b[0]-a[0], dz=b[1]-a[1]; const L=Math.hypot(dx,dz)||1; dx/=L; dz/=L;
+        const px=-dz*hw, pz=dx*hw;
+        pos.push(wpts[i][0]+px,y,wpts[i][1]+pz, wpts[i][0]-px,y,wpts[i][1]-pz); nor.push(0,1,0,0,1,0);
+      }
+      for(let i=0;i<wpts.length-1;i++){ const a=off+i*2; idx.push(a,a+1,a+2, a+1,a+3,a+2); }
+      off+=wpts.length*2;
+    }
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+    g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3)); g.setIndex(idx);
+    bridgeMesh=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color:0xa6adb5,side:THREE.DoubleSide}));
+    scene.add(bridgeMesh); btn.textContent=orig;
+  }
+  const bbtn=document.createElement('button'); bbtn.textContent='교량·고가도로'; bbtn.style.setProperty('--dot','#c2cad3');
+  bbtn.onclick=()=>toggleBridges(bbtn).catch(e=>{bbtn.textContent='교량·고가도로';console.error(e);});
+  $('#bridges').appendChild(bbtn);
+  toggleBridges(bbtn).catch(e=>console.error(e));   // 기본 ON
+
+  // 건물 용도별 색 토글(기본 OFF) + 범례
+  const ubtn=document.createElement('button'); ubtn.textContent='건물 용도별 색'; ubtn.style.setProperty('--dot','#ffd84d');
+  ubtn.onclick=()=>{ const on=bldMat.uniforms.uUseMode.value<0.5; bldMat.uniforms.uUseMode.value=on?1.0:0.0; ubtn.classList.toggle('on',on); };
+  $('#buildinguse').appendChild(ubtn);
+  const ul=$('#uselegend'); if(ul){ ul.style.cssText='display:flex;flex-wrap:wrap;gap:3px 9px;margin-top:7px;';
+    [[1,'주거'],[2,'상업·근생'],[3,'공업'],[4,'창고·물류'],[5,'농업'],[6,'공공·교육']].forEach(([cat,nm])=>{
+      const c=CAT_COL[cat], s=document.createElement('span');
+      s.style.cssText='display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);';
+      s.innerHTML=`<i style="width:9px;height:9px;border-radius:2px;display:inline-block;background:rgb(${(c.x*255)|0},${(c.y*255)|0},${(c.z*255)|0})"></i>${nm}`;
+      ul.appendChild(s); }); }
+
   update();
   $('#loading').style.display='none';
 
   addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
     renderer.setSize(innerWidth,innerHeight); labelRenderer.setSize(innerWidth,innerHeight); });
-  (function loop(){ requestAnimationFrame(loop); controls.update(); renderer.render(scene,camera);
-    if(emdGroup.visible||rivGroup.visible) labelRenderer.render(scene,camera); })();
+  (function loop(){ requestAnimationFrame(loop); controls.update();
+    // 수위 목표치로 부드럽게 수렴(스무스)
+    if(Math.abs(dispS-targetS)>0.002){ dispS+=(targetS-dispS)*0.12; applyS(dispS); }
+    else if(dispS!==targetS){ dispS=targetS; applyS(dispS); }
+    renderer.render(scene,camera);
+    // 라벨: 둘 다 꺼지면 컨테이너 숨김(껐을 때 화면에 얼어붙는 버그 수정)
+    const anyOn=emdGroup.visible||rivGroup.visible;
+    labelRenderer.domElement.style.display=anyOn?'':'none';
+    if(anyOn) labelRenderer.render(scene,camera); })();
 }
 
 loadAll().then(main).catch(e=>{ console.error(e); $('#lmsg').textContent='오류: '+e.message; });

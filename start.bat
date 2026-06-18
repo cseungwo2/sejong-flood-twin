@@ -15,5 +15,5 @@ start "" /min powershell -NoProfile -Command "do { Start-Sleep -Milliseconds 400
 REM --- 3) 로컬 서버 시작 (이 창을 닫으면 서버 종료) ---
 echo 로컬 서버 시작: http://localhost:8765/index.html
 echo (이 창을 닫으면 서버가 종료됩니다)
-where python >nul 2>nul && (python nocache_server.py) || ("C:\Python314\python.exe" nocache_server.py)
+where py >nul 2>nul && (py -3 nocache_server.py) || (where python >nul 2>nul && (python nocache_server.py) || ("C:\Python314\python.exe" nocache_server.py))
 pause

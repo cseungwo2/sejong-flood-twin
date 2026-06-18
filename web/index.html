@@ -144,11 +144,10 @@
         <div class="mark"></div>
         <div><div class="wm"><b>REDI</b> <span>Lab</span></div><div class="tag">FLOOD DIGITAL TWIN</div></div>
       </div>
-      <div class="sub">세종시 침수 디지털트윈 · 실시간 침수심 시뮬레이션</div>
     </div>
 
     <div class="stats">
-      <div class="card accent"><div class="k">수위 (EL)</div><div class="v" id="s-wl">–</div></div>
+      <div class="card accent"><div class="k">하천 수위</div><div class="v" id="s-wl">–</div></div>
       <div class="card accent"><div class="k">최대 침수심</div><div class="v" id="s-depth">–</div></div>
       <div class="card"><div class="k">침수 건물</div><div class="v" id="s-bld">–</div></div>
       <div class="card"><div class="k">침수 면적</div><div class="v" id="s-area">–</div></div>
@@ -172,6 +171,13 @@
 
     <div class="sec">이름 라벨 · 켜기/끄기</div>
     <div class="ovr" id="labels"></div>
+
+    <div class="sec">교량 · 고가도로</div>
+    <div class="ovr" id="bridges"></div>
+
+    <div class="sec">건물 용도별 색</div>
+    <div class="ovr" id="buildinguse"></div>
+    <div id="uselegend"></div>
   </div>
 
   <div id="dock">
@@ -183,27 +189,25 @@
       <span id="scn-tlabel">t –</span>
     </div>
     <div class="dhead">
-      <span class="dlab"><b>침수심</b> — 하천 수위 상승량 (무방비 가정 · 제방/배수 미반영)</span>
+      <span class="dlab"><b>침수심</b> — 하천 수위 상승량</span>
       <span class="big"><span id="wl-val">0.0</span><small> m</small></span>
     </div>
     <input id="wl" type="range" min="0" max="100" step="0.1" value="0" />
-    <div class="ticks"><span>하천 평수위(0)</span><span>극한 ~6m(오송 미호강) →</span></div>
+    <div class="ticks"><span>0 m</span><span>15 m →</span></div>
     <div class="chips" id="presets"></div>
   </div>
 
   <div id="tip"></div>
   <div id="hint"><b>좌클릭</b> 회전 · <b>우클릭</b> 이동 · <b>휠</b> 줌</div>
-  <div class="credit">DEM·건물·지적 기반 정적 bathtub 모델 · 위성 © Esri</div>
+  <div class="credit">© Esri</div>
 
   <script>
     // 왼쪽 패널 섹션 헤더 클릭 → 그 아래 내용 접기/펴기
+    function setCollapse(sec,off){ let el=sec.nextElementSibling;
+      while(el && !el.classList.contains('sec')){ el.style.display=off?'none':''; el=el.nextElementSibling; } }
     document.querySelectorAll('#hud .sec').forEach(sec=>{
-      sec.addEventListener('click',()=>{
-        sec.classList.toggle('collapsed');
-        const off=sec.classList.contains('collapsed');
-        let el=sec.nextElementSibling;
-        while(el && !el.classList.contains('sec')){ el.style.display=off?'none':''; el=el.nextElementSibling; }
-      });
+      if(/홍수위험지도/.test(sec.textContent)){ sec.classList.add('collapsed'); setCollapse(sec,true); }  // 버튼 많은 섹션 기본 접힘
+      sec.addEventListener('click',()=>{ sec.classList.toggle('collapsed'); setCollapse(sec,sec.classList.contains('collapsed')); });
     });
   </script>
 
@@ -214,6 +218,6 @@
     "earcut": "https://cdn.jsdelivr.net/npm/earcut@2.2.4/+esm"
   }}
   </script>
-  <script type="module" src="./app.js?v=15"></script>
+  <script type="module" src="./app.js?v=17"></script>
 </body>
 </html>
