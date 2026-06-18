@@ -22,32 +22,6 @@ def seg_m(a, b):
     dy = (b[1] - a[1]) * 111320
     return math.hypot(dx, dy)
 
-
-def sejong_inside():
-    """세종 경계 마스크(sejong_mask.png) 기반 inside(lon,lat) 판정 함수.
-    마스크/PIL 이 없으면 None 반환(클리핑 생략). 지형·위성영상 클리핑과 동일 경계."""
-    mp = os.path.join(BASE, "web", "data", "sejong_mask.png")
-    mm = os.path.join(BASE, "web", "data", "sejong_mask_meta.json")
-    if not (os.path.exists(mp) and os.path.exists(mm)):
-        return None
-    try:
-        from PIL import Image
-    except Exception:
-        print("  (PIL 없음 → 경계 클리핑 생략)")
-        return None
-    b = json.load(open(mm, encoding="utf-8"))["bbox"]
-    img = Image.open(mp).convert("L"); px = img.load(); mw, mh = img.size
-    west, east, north, south = b["west"], b["east"], b["north"], b["south"]
-
-    def inside(lon, lat):
-        col = int((lon - west) / (east - west) * mw)
-        row = int((north - lat) / (north - south) * mh)
-        if col < 0 or col >= mw or row < 0 or row >= mh:
-            return False
-        return px[col, row] > 127
-
-    return inside
-
 d = json.load(open(SRC, encoding="utf-8"))
 out = []
 for e in d.get("elements", []):
@@ -70,12 +44,18 @@ for e in d.get("elements", []):
         w = WIDTH.get(hw, 8)
     out.append({"coords": coords, "w": w, "name": name})
 
-# 세종 경계 밖 교량 제거(지형·위성 클리핑과 동일 경계). 한 점이라도 안에 들면 유지.
-inside = sejong_inside()
-if inside is not None:
-    n0 = len(out)
-    out = [b for b in out if any(inside(c[0], c[1]) for c in b["coords"])]
-    print(f"  경계 클리핑: {n0} → {len(out)} (제거 {n0 - len(out)})")
+# 세종 경계로 기하 클립: 넘어가는 교량은 경계에서 잘라 안쪽 구간만 남김(딱 세종 영역).
+try:
+    from clip_bridges_sejong import load_inside, clip_bridges
+    inside = load_inside()
+    if inside is not None:
+        n0 = len(out)
+        out = clip_bridges(out, inside)
+        print(f"  경계 기하 클립: {n0} 교량 → 세종 내 조각 {len(out)}개")
+    else:
+        print("  (마스크/PIL 없음 → 경계 클립 생략)")
+except Exception as e:
+    print("  (경계 클립 생략:", e, ")")
 
 json.dump({"bridges": out}, open(OUT, "w", encoding="utf-8"), ensure_ascii=False)
 print("교량 출력:", len(out), "개 ->", OUT, "(", round(os.path.getsize(OUT)/1e6, 2), "MB )")
