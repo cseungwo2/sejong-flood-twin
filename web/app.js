@@ -161,6 +161,7 @@ function main({ tmeta, theights, hand, bgeo }) {
   const waterMat=new THREE.ShaderMaterial({
     uniforms:{ uS:{value:0.0}, uDeepRef:{value:8.0*VE} },
     transparent:true, depthWrite:false, side:THREE.DoubleSide,
+    polygonOffset:true, polygonOffsetFactor:-4, polygonOffsetUnits:-4,
     vertexShader:`
       attribute float aTH; attribute float aHAND; uniform float uS; varying float vDepth;
       void main(){ float d = uS - aHAND; vDepth = d;
@@ -281,7 +282,7 @@ function main({ tmeta, theights, hand, bgeo }) {
 
   // ---- slider ---- 슬라이더 = 하천 수면이 평소보다 차오른 높이(m). 국가/지방/소하천 동시 적용
   const wl=$('#wl');
-  wl.min=0; wl.max=15; wl.step=0.1;
+  wl.min=0; wl.max=7; wl.step=0.05;   // 0~7m: 국내 극한 도시침수(오송 미호강 ~6m)+여유, 0.05m 미세조정
   const qwl=parseFloat(new URLSearchParams(location.search).get('wl'));
   wl.value=isFinite(qwl)?Math.min(qwl,+wl.max):0;
   $('#lg-max').textContent = '8+';
@@ -301,7 +302,7 @@ function main({ tmeta, theights, hand, bgeo }) {
   wl.addEventListener('input',update);
 
   // presets
-  const presets=[['평상시',0],['1 m',1],['2 m',2],['3 m',3],['5 m',5],['10 m',10]];
+  const presets=[['평상시',0],['0.3 m',0.3],['0.5 m',0.5],['1 m',1],['2 m',2],['3 m',3]];
   const pc=$('#presets');
   presets.forEach(([lab,v])=>{ const b=document.createElement('button'); b.textContent=lab;
     b.onclick=()=>{ wl.value=Math.min(v,+wl.max); update(); }; pc.appendChild(b); });
@@ -385,7 +386,7 @@ function main({ tmeta, theights, hand, bgeo }) {
       const ag=at.aGz.array[fa], adr=at.aDrain.array[fa];        // 지반고·하천기준수면고도(VE)
       const base=ag/VE, d=(waterMat.uniforms.uS.value - ag + adr)/VE;   // 침수심 = 상승량 - HAND
       tip.style.display='block'; tip.style.left=(e.clientX+12)+'px'; tip.style.top=(e.clientY+12)+'px';
-      tip.textContent= d>0 ? `이 건물 침수심 ≈ ${d.toFixed(1)} m (지반 EL ${base.toFixed(1)})` : `미침수 (지반 EL ${base.toFixed(1)})`;
+      tip.textContent= d>0 ? `침수 ≈ ${d.toFixed(1)} m 잠김 · 지반높이 ${base.toFixed(0)}m` : `안 잠김 · 지반높이 ${base.toFixed(0)}m`;
     } else tip.style.display='none';
   });
 
@@ -397,10 +398,10 @@ function main({ tmeta, theights, hand, bgeo }) {
     const a=gg(i,j)*(1-tx)+gg(i+1,j)*tx, b=gg(i,j+1)*(1-tx)+gg(i+1,j+1)*tx; return a*(1-ty)+b*ty;
   }
   const OVR=[['river_100','100년 빈도 국가하천 범람',0xffd24a],['river_200','200년 빈도 국가하천 범람',0xff9e3d],
-             ['river_500','500년 빈도 국가하천 범람',0xff5e5e],['river_max','기왕최대 하천범람',0xc060ff],
-             ['urban_30','30년 빈도 도시침수',0xa7e86b],['urban_50','50년 빈도 도시침수',0x5fcf52],
-             ['urban_80','80년 빈도 도시침수',0x2aa247],['urban_100','100년 빈도 도시침수',0x10783a],
-             ['urban_500','500년 빈도 도시침수',0x9b5de5]];
+             ['river_500','500년 빈도 국가하천 범람',0xff5e5e],
+             ['urban_30','30년 빈도 도시침수',0xff5c8a],['urban_50','50년 빈도 도시침수',0xe5383b],
+             ['urban_80','80년 빈도 도시침수',0xb5179e],['urban_100','100년 빈도 도시침수',0x9d0208],
+             ['urban_500','500년 빈도 도시침수',0x6a040f]];
   const ovrCache={}, ovrMesh={};
   async function toggleOverlay(key,btn,color){
     if(ovrMesh[key]){ scene.remove(ovrMesh[key]); ovrMesh[key].geometry.dispose(); delete ovrMesh[key]; btn.classList.remove('on'); return; }
@@ -419,7 +420,7 @@ function main({ tmeta, theights, hand, bgeo }) {
     }
     const geo=new THREE.BufferGeometry();
     geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); geo.setIndex(idx);
-    const m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color,transparent:true,opacity:0.42,depthWrite:false,side:THREE.DoubleSide}));
+    const m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color,transparent:true,opacity:0.6,depthWrite:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-4}));
     m.renderOrder=3; scene.add(m); ovrMesh[key]=m; btn.textContent=orig;
   }
   const ob=$('#overlays');
