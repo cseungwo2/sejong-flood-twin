@@ -493,8 +493,8 @@ function main({ tmeta, theights, hand, bgeo }) {
 
   // ---- 이름 라벨(읍면동·하천) CSS2D 텍스트, 토글 on/off ----
   const labelRenderer=new CSS2DRenderer();
-  labelRenderer.setSize(innerWidth,innerHeight);
-  labelRenderer.domElement.style.cssText='position:absolute;top:0;left:0;pointer-events:none;overflow:hidden;';
+  labelRenderer.setSize(innerWidth,innerHeight);   // width/height 설정 — 아래서 cssText로 덮어쓰면 안됨(라벨 잘림)
+  { const el=labelRenderer.domElement; el.style.position='absolute'; el.style.top='0'; el.style.left='0'; el.style.pointerEvents='none'; }
   $('#app').appendChild(labelRenderer.domElement);
   const emdGroup=new THREE.Group(), rivGroup=new THREE.Group();
   scene.add(emdGroup,rivGroup);
@@ -508,9 +508,9 @@ function main({ tmeta, theights, hand, bgeo }) {
   }
   fetch('./data/labels.json').then(r=>r.json()).then(L=>{
     for(const e of (L.emd||[])){ const o=mkLabel(e.name,'#ffe9a8',14,'700');
-      const [x,n]=proj.fwd(e.lon,e.lat); o.position.set(x, hAtLonLat(e.lon,e.lat)*VE+30, -n); o.visible=labelState.emd; emdGroup.add(o); }
+      const [x,n]=proj.fwd(e.lon,e.lat); o.position.set(x, hAtLonLat(e.lon,e.lat)*VE+6, -n); o.visible=labelState.emd; emdGroup.add(o); }
     for(const r of (L.rivers||[])){ const o=mkLabel(r.name, LBL_COLOR[r.grade]||'#bdeef2',12,'600');
-      const [x,n]=proj.fwd(r.lon,r.lat); o.position.set(x, hAtLonLat(r.lon,r.lat)*VE+12, -n); o.visible=labelState.riv; rivGroup.add(o); }
+      const [x,n]=proj.fwd(r.lon,r.lat); o.position.set(x, hAtLonLat(r.lon,r.lat)*VE+2, -n); o.visible=labelState.riv; rivGroup.add(o); }
   }).catch(e=>console.error('labels',e));
   const lb=$('#labels');
   [['읍면동 이름','emd',emdGroup,'#ffe9a8'],['하천 이름','riv',rivGroup,'#9ad6ff']].forEach(([lab,key,grp,c])=>{
