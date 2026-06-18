@@ -92,6 +92,22 @@
     border-radius:99px; padding:6px 13px; font-size:11.5px; cursor:pointer; transition:.15s; font-weight:600; }
   .chips button:hover{ background:var(--accent); color:#04101e; border-color:var(--accent); }
 
+  /* SD 시나리오 위험도 + 재생바 */
+  .riskbar{ height:10px; border-radius:99px; background:rgba(255,255,255,.08);
+    overflow:hidden; border:1px solid var(--line-2); }
+  .riskbar>i{ display:block; height:100%; width:0%; border-radius:99px;
+    background:var(--good); transition:width .15s linear, background .3s; }
+  .risk-row{ display:flex; justify-content:space-between; align-items:baseline; font-size:11px; color:var(--muted); margin-top:5px; }
+  .risk-row #risk-val{ font-weight:800; color:#fff; font-size:15px; font-variant-numeric:tabular-nums; }
+  #scn-bar{ display:flex; align-items:center; gap:9px; margin-bottom:12px; }
+  #scn-bar .sl{ font-size:10.5px; color:var(--muted-2); letter-spacing:1px; font-weight:700; }
+  #scn-bar select{ flex:1; background:rgba(255,255,255,.05); color:var(--txt);
+    border:1px solid var(--line); border-radius:8px; padding:6px 9px; font-size:12px; font-family:inherit; }
+  #scn-bar button{ background:rgba(55,194,255,.16); border:1px solid var(--accent); color:#fff;
+    border-radius:8px; width:36px; height:32px; cursor:pointer; font-size:13px; flex:none; }
+  #scn-bar #scn-time{ flex:1; }
+  #scn-bar #scn-tlabel{ font-size:11px; color:var(--muted); min-width:78px; text-align:right; font-variant-numeric:tabular-nums; }
+
   #hint{ position:fixed; right:16px; bottom:16px; z-index:20; font-size:11px; color:var(--muted);
     background:var(--panel); border:1px solid var(--line); padding:7px 12px; border-radius:99px;
     backdrop-filter:blur(10px); }
@@ -131,15 +147,34 @@
       <div class="card"><div class="k">침수 면적</div><div class="v" id="s-area">–</div></div>
     </div>
 
+    <div id="risk-wrap" style="display:none">
+      <div class="sec">시민 안전 위험도 · SD 시나리오</div>
+      <div class="riskbar"><i id="risk-fill"></i></div>
+      <div class="risk-row"><span id="risk-val">–</span><span id="risk-lvl">–</span></div>
+    </div>
+
     <div class="sec">침수심 범례 (m)</div>
     <div class="ramp"></div>
     <div class="ramp-ends"><span>0</span><span id="lg-max">8+</span></div>
 
     <div class="sec">공식 홍수위험지도 · 정부 공인</div>
     <div class="ovr" id="overlays"></div>
+
+    <div class="sec">하천망 · 기본 수심(평상시)</div>
+    <div class="ovr" id="rivers"></div>
+
+    <div class="sec">이름 라벨 · 켜기/끄기</div>
+    <div class="ovr" id="labels"></div>
   </div>
 
   <div id="dock">
+    <div id="scn-bar">
+      <span class="sl">시나리오</span>
+      <select id="scn-sel"><option value="">— 수동 조작 —</option></select>
+      <button id="scn-play" title="재생/일시정지">▶</button>
+      <input id="scn-time" type="range" min="0" max="100" value="0" step="1" disabled />
+      <span id="scn-tlabel">t –</span>
+    </div>
     <div class="dhead">
       <span class="dlab"><b>침수심</b> 시뮬레이션 — 기준수위 위로 차오른 수심</span>
       <span class="big"><span id="wl-val">0.0</span><small> m</small></span>
@@ -160,6 +195,6 @@
     "earcut": "https://cdn.jsdelivr.net/npm/earcut@2.2.4/+esm"
   }}
   </script>
-  <script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js?v=13"></script>
 </body>
 </html>

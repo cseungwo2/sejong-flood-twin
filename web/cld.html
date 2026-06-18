@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>REDILab.UBFlooding — 인과지도(CLD) 편집기</title>
+<link rel="stylesheet" as="style" crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<link rel="stylesheet" href="./sd/style.css" />
+</head>
+<body>
+  <div id="wrap">
+    <div id="topbar">
+      <div class="brand">
+        <div class="mark"></div>
+        <div><div class="wm"><b>REDI</b> <span>Lab</span></div><div class="tag">SYSTEM DYNAMICS · CLD</div></div>
+      </div>
+      <div class="title"><b id="model-name">새 인과지도</b> · 침수 → 시민안전 인과모델</div>
+      <div class="grow"></div>
+      <button class="tb-btn primary" id="btn-add">+ 변수 추가</button>
+      <button class="tb-btn" id="btn-csv">+ 데이터(CSV)</button>
+      <button class="tb-btn" id="btn-sample">예시 모델</button>
+      <button class="tb-btn" id="btn-save">저장(JSON)</button>
+      <button class="tb-btn" id="btn-load">불러오기</button>
+      <button class="tb-btn" id="btn-clear">비우기</button>
+      <button class="tb-btn" id="btn-sim">▶ 시뮬레이션</button>
+      <a class="tb-btn" href="./index.html" title="디지털트윈으로">트윈 →</a>
+      <input type="file" id="file-input" accept="application/json,.json" hidden />
+      <input type="file" id="csv-input" accept=".csv,text/csv" multiple hidden />
+    </div>
+
+    <div id="main">
+      <svg id="cv"></svg>
+      <input id="inline-edit" />
+      <div id="hint">
+        <b>빈 곳 더블클릭</b> 변수 추가 · <b>노드 드래그</b> 이동 · <b>파란 손잡이 드래그</b> 인과링크 ·
+        <b>± 클릭</b> 극성 · <b>노드 더블클릭</b> 이름 · <b>Del</b> 삭제 · <b>휠</b> 줌
+      </div>
+
+      <div id="simpanel" class="hidden">
+        <div class="sp-head">
+          <span class="sp-title">시뮬레이션</span>
+          <label class="sp-field">dt <input id="sp-dt" type="number" value="1" min="0.01" step="0.1" /></label>
+          <label class="sp-field">스텝 <input id="sp-steps" type="number" placeholder="auto" min="1" /></label>
+          <button class="tb-btn primary" id="sp-run">▶ 실행</button>
+          <label class="sp-chk"><input type="checkbox" id="sp-norm" /> 정규화(0~1)</label>
+          <span class="grow"></span>
+          <button class="tb-btn" id="sp-close">✕</button>
+        </div>
+        <div id="sp-legend" class="sp-legend"></div>
+        <svg id="sp-chart"></svg>
+        <div id="sp-warn" class="sp-warn"></div>
+
+        <div class="sp-section">
+          <div class="sp-sec-title">⚠ 임계점 · 붕괴 분석</div>
+          <div class="sp-row">
+            <label class="sp-field">출력 <select id="an-out"></select></label>
+            <label class="sp-field">붕괴 임계값 <input id="an-thr" type="number" step="any" value="5" /></label>
+            <label class="sp-chk"><input type="checkbox" id="an-showthr" checked /> 시계열에 임계선 표시</label>
+          </div>
+          <div class="sp-row">
+            <label class="sp-field">스윕 변수 <select id="an-param"></select></label>
+            <label class="sp-field">범위 <input id="an-from" type="number" step="any" value="0" /> ~ <input id="an-to" type="number" step="any" value="120" /></label>
+            <label class="sp-field">분할 <input id="an-steps" type="number" value="30" min="2" /></label>
+            <label class="sp-field">지표 <select id="an-metric"><option value="peak">첨두값</option><option value="final">최종값</option></select></label>
+            <button class="tb-btn primary" id="an-run">임계점 분석 ▶</button>
+            <button class="tb-btn" id="an-back" style="display:none">← 시계열로</button>
+          </div>
+          <div id="an-result" class="sp-warn"></div>
+        </div>
+
+        <div class="sp-section">
+          <div class="sp-sec-title">시나리오 내보내기 (→ 트윈)</div>
+          <div class="sp-row">
+            <input id="scn-name" class="scn-name" placeholder="시나리오 이름 (예: 200년빈도_배수약화)" />
+            <label class="sp-field">트윈 수위 <select id="scn-wl"></select></label>
+            <label class="sp-field">위험도 <select id="scn-risk"></select></label>
+            <button class="tb-btn primary" id="scn-save">시나리오 저장</button>
+            <button class="tb-btn" id="scn-download">JSON 파일</button>
+          </div>
+          <div id="scn-list" class="scn-list"></div>
+        </div>
+      </div>
+
+      <div id="side">
+        <div class="sec">속성</div>
+        <div id="inspector"><div class="empty">노드나 링크를 선택하세요.</div></div>
+
+        <div class="sec">피드백 루프</div>
+        <div id="loops" class="loop-list"><div class="empty">감지된 루프가 없습니다.</div></div>
+
+        <div class="sec">데이터셋 (CSV)</div>
+        <div id="datasets"><div class="empty">상단 “+ 데이터(CSV)”로 시민안전 데이터를 올리세요.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./sd/editor.js"></script>
+</body>
+</html>

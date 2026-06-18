@@ -10,6 +10,12 @@ prep/*.tif.xml
 prep/*.ovr
 prep/*.vat.dbf
 prep/*.dbf
+prep/*.tfw
+prep/*.aux.xml
+prep/*.vat.cpg
+prep/Fill_*
+prep/FlowDir_*
+*.bak_posfix
 
 # ===== 다운로드 바이너리 / 로그 =====
 cloudflared.exe
