@@ -497,7 +497,8 @@ function main({ tmeta, theights, hand, bgeo }) {
   labelRenderer.domElement.style.cssText='position:absolute;top:0;left:0;pointer-events:none;overflow:hidden;';
   $('#app').appendChild(labelRenderer.domElement);
   const emdGroup=new THREE.Group(), rivGroup=new THREE.Group();
-  emdGroup.visible=false; rivGroup.visible=false; scene.add(emdGroup,rivGroup);
+  scene.add(emdGroup,rivGroup);
+  const labelState={emd:false, riv:false};   // CSS2DRenderer가 그룹 가시성 무시 → 라벨 개별 visible로 제어
   const LBL_COLOR={'국가하천':'#7fd0ff','지방하천':'#9ad6ff','소하천':'#bdeef2'};
   function mkLabel(text,color,size,weight){
     const d=document.createElement('div'); d.textContent=text;
@@ -507,14 +508,15 @@ function main({ tmeta, theights, hand, bgeo }) {
   }
   fetch('./data/labels.json').then(r=>r.json()).then(L=>{
     for(const e of (L.emd||[])){ const o=mkLabel(e.name,'#ffe9a8',14,'700');
-      const [x,n]=proj.fwd(e.lon,e.lat); o.position.set(x, hAtLonLat(e.lon,e.lat)*VE+60, -n); emdGroup.add(o); }
+      const [x,n]=proj.fwd(e.lon,e.lat); o.position.set(x, hAtLonLat(e.lon,e.lat)*VE+30, -n); o.visible=labelState.emd; emdGroup.add(o); }
     for(const r of (L.rivers||[])){ const o=mkLabel(r.name, LBL_COLOR[r.grade]||'#bdeef2',12,'600');
-      const [x,n]=proj.fwd(r.lon,r.lat); o.position.set(x, hAtLonLat(r.lon,r.lat)*VE+15, -n); rivGroup.add(o); }
+      const [x,n]=proj.fwd(r.lon,r.lat); o.position.set(x, hAtLonLat(r.lon,r.lat)*VE+12, -n); o.visible=labelState.riv; rivGroup.add(o); }
   }).catch(e=>console.error('labels',e));
   const lb=$('#labels');
-  [['읍면동 이름',emdGroup,'#ffe9a8'],['하천 이름',rivGroup,'#9ad6ff']].forEach(([lab,grp,c])=>{
+  [['읍면동 이름','emd',emdGroup,'#ffe9a8'],['하천 이름','riv',rivGroup,'#9ad6ff']].forEach(([lab,key,grp,c])=>{
     const b=document.createElement('button'); b.textContent=lab; b.style.setProperty('--dot',c);
-    b.onclick=()=>{ grp.visible=!grp.visible; b.classList.toggle('on',grp.visible); }; lb.appendChild(b); });
+    b.onclick=()=>{ labelState[key]=!labelState[key]; grp.children.forEach(o=>o.visible=labelState[key]); b.classList.toggle('on',labelState[key]); };
+    lb.appendChild(b); });
 
   // ---- 교량·고가도로 (OSM, 양끝 지형고 직선연결 → 도로에 이어지고 강/계곡 위로 부상) ----
   let bridgeMesh=null, bridgeData=null;
@@ -572,7 +574,7 @@ function main({ tmeta, theights, hand, bgeo }) {
     else if(dispS!==targetS){ dispS=targetS; applyS(dispS); }
     renderer.render(scene,camera);
     // 라벨: 둘 다 꺼지면 컨테이너 숨김(껐을 때 화면에 얼어붙는 버그 수정)
-    const anyOn=emdGroup.visible||rivGroup.visible;
+    const anyOn=labelState.emd||labelState.riv;
     labelRenderer.domElement.style.display=anyOn?'':'none';
     if(anyOn) labelRenderer.render(scene,camera); })();
 }
