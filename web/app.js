@@ -53,7 +53,7 @@ function main({ tmeta, theights, hand, bgeo }) {
   // ---- scene ----
   const scene = new THREE.Scene();
   const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));   // 렉 완화: 고DPI에서 픽셀수 절감(화질차 미미)
   renderer.setSize(innerWidth, innerHeight);
   $('#app').appendChild(renderer.domElement);
 
@@ -394,19 +394,24 @@ function main({ tmeta, theights, hand, bgeo }) {
   })();
 
   // ---- hover tooltip (building depth) ----
+  // 렉 완화: pointermove에서는 좌표만 저장하고, 실제 레이캐스트는 렌더 루프에서
+  // 프레임당 최대 1회만 수행(updateHover). 툴팁 내용·위치·동작은 기존과 동일.
   const ray=new THREE.Raycaster(); const mouse=new THREE.Vector2(); const tip=$('#tip');
-  addEventListener('pointermove',e=>{
-    mouse.x=(e.clientX/innerWidth)*2-1; mouse.y=-(e.clientY/innerHeight)*2+1;
+  let hoverX=0, hoverY=0, hoverDirty=false;
+  addEventListener('pointermove',e=>{ hoverX=e.clientX; hoverY=e.clientY; hoverDirty=true; });
+  function updateHover(){
+    if(!hoverDirty) return; hoverDirty=false;
+    mouse.x=(hoverX/innerWidth)*2-1; mouse.y=-(hoverY/innerHeight)*2+1;
     ray.setFromCamera(mouse,camera); const hit=ray.intersectObject(buildings,false)[0];
     if(hit){ const at=hit.object.geometry.attributes, fa=hit.face.a;
       const ag=at.aGz.array[fa], adr=at.aDrain.array[fa];
       const cat=at.aUseCat?(at.aUseCat.array[fa]|0):0;
       const base=ag/VE, d=(waterMat.uniforms.uS.value - ag + adr)/VE;
-      tip.style.display='block'; tip.style.left=(e.clientX+12)+'px'; tip.style.top=(e.clientY+12)+'px';
+      tip.style.display='block'; tip.style.left=(hoverX+12)+'px'; tip.style.top=(hoverY+12)+'px';
       const dep = d>0 ? `침수 ${d.toFixed(1)}m 잠김` : `안 잠김`;
       tip.textContent= `${CAT_NAME[cat]||'용도 미상'} · ${dep} · 지반 ${base.toFixed(0)}m`;
     } else tip.style.display='none';
-  });
+  }
 
   // ---- official flood-map overlays (lazy) ----
   function hAtLonLat(lon,lat){
@@ -572,6 +577,7 @@ function main({ tmeta, theights, hand, bgeo }) {
     // 수위 목표치로 부드럽게 수렴(스무스)
     if(Math.abs(dispS-targetS)>0.002){ dispS+=(targetS-dispS)*0.12; applyS(dispS); }
     else if(dispS!==targetS){ dispS=targetS; applyS(dispS); }
+    updateHover();                       // 호버 레이캐스트: 프레임당 최대 1회
     renderer.render(scene,camera);
     // 라벨: 둘 다 꺼지면 컨테이너 숨김(껐을 때 화면에 얼어붙는 버그 수정)
     const anyOn=labelState.emd||labelState.riv;
