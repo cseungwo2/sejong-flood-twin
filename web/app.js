@@ -57,9 +57,10 @@ function main({ tmeta, theights, hand, bgeo }) {
   renderer.setSize(innerWidth, innerHeight);
   $('#app').appendChild(renderer.domElement);
 
-  const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 5, 40000);
+  const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 8, 160000);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true; controls.maxPolarAngle = Math.PI*0.495;
+  controls.minDistance = 30; controls.maxDistance = 95000;   // 줌아웃해도 지형이 far-plane에 잘리지 않게
 
   scene.add(new THREE.HemisphereLight(0xbcd4f0, 0x33404d, 0.9));
   const sun = new THREE.DirectionalLight(0xfff2dd, 1.1); sun.position.set(-0.6,1,0.4); scene.add(sun);
@@ -78,7 +79,7 @@ function main({ tmeta, theights, hand, bgeo }) {
   const west=tmeta.bbox.west, north=tmeta.bbox.north;
   const merc=(lon,lat)=>{ const x=(lon+180)/360; const s=Math.sin(lat*Math.PI/180);
     return [x, 0.5-Math.log((1+s)/(1-s))/(4*Math.PI)]; };
-  const Z=14, nT=2**Z;
+  const Z=15, nT=2**Z;   // 위성 타일 줌 ↑ (고화질). 캔버스는 GPU 한계에 맞춰 자동 클램프
   const [mx0,my0]=merc(tmeta.bbox.west,tmeta.bbox.north), [mx1,my1]=merc(tmeta.bbox.east,tmeta.bbox.south);
   const txmin=Math.floor(mx0*nT), txmax=Math.floor(mx1*nT), tymin=Math.floor(my0*nT), tymax=Math.floor(my1*nT);
   const nxT=txmax-txmin+1, nyT=tymax-tymin+1;
@@ -118,7 +119,9 @@ function main({ tmeta, theights, hand, bgeo }) {
 
   // ---- drape satellite imagery (ESRI World Imagery, CORS) ----
   (function drape(){
-    const TS=256, cv=document.createElement('canvas'); cv.width=nxT*TS; cv.height=nyT*TS;
+    const TS=256, MAXTEX=renderer.capabilities.maxTextureSize||8192;
+    const fullW=nxT*TS, fullH=nyT*TS;
+    const cv=document.createElement('canvas'); cv.width=fullW; cv.height=fullH;   // 풀 해상도로 크리스프하게 합성
     const ctx=cv.getContext('2d'); let done=0; const total=nxT*nyT, tilesDone=()=>done>=total;
     // 지적(LOT)+도로 합성 오버레이 (동일 출처 → 캔버스 오염 없음)
     const ov=new Image(); let ovReady=false;
@@ -137,7 +140,14 @@ function main({ tmeta, theights, hand, bgeo }) {
         const pyN=(my0*nT-tymin)/nyT*cv.height, pyS=(my1*nT-tymin)/nyT*cv.height;
         ctx.drawImage(ov,0,0,ov.width,ov.height, pxW,pyN, pxE-pxW, pyS-pyN);
       }
-      const tex=new THREE.CanvasTexture(cv); tex.flipY=false; tex.colorSpace=THREE.SRGBColorSpace;
+      let src=cv;                                  // GPU 한계 초과 시에만 전체를 1회 고품질 축소
+      if(Math.max(fullW,fullH) > MAXTEX){
+        const s=MAXTEX/Math.max(fullW,fullH);
+        const cv2=document.createElement('canvas'); cv2.width=Math.round(fullW*s); cv2.height=Math.round(fullH*s);
+        const c2=cv2.getContext('2d'); c2.imageSmoothingEnabled=true; c2.imageSmoothingQuality='high';
+        c2.drawImage(cv,0,0,cv2.width,cv2.height); src=cv2;
+      }
+      const tex=new THREE.CanvasTexture(src); tex.flipY=false; tex.colorSpace=THREE.SRGBColorSpace;
       tex.anisotropy=renderer.capabilities.getMaxAnisotropy();
       terrainMat.map=tex; terrainMat.vertexColors=false; terrainMat.color.set(0xffffff); terrainMat.needsUpdate=true;
     }catch(e){ console.warn('drape failed (CORS/offline) — 표고색 유지',e); } }
