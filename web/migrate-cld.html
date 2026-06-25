@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CLD 작업물 옮기기 (:8765 → :8766)</title>
+<style>
+  body{ font-family:system-ui,'Segoe UI',sans-serif; background:#0a1422; color:#e6eef7;
+        max-width:680px; margin:40px auto; padding:0 20px; line-height:1.6; }
+  h1{ font-size:20px; } .card{ background:#11243a; border:1px solid #1d3450; border-radius:12px; padding:18px 20px; margin:16px 0; }
+  button{ background:#37c2ff; color:#04263a; border:0; border-radius:9px; padding:10px 16px; font-size:14px; font-weight:700; cursor:pointer; }
+  button:disabled{ background:#33506b; color:#90a4b8; cursor:not-allowed; }
+  code{ background:#0a1422; padding:2px 6px; border-radius:5px; }
+  .ok{ color:#5fe39b; } .no{ color:#ff7a7a; } ol{ padding-left:20px; } pre{ white-space:pre-wrap; word-break:break-all; font-size:12px; color:#90a4b8; }
+</style>
+</head>
+<body>
+  <h1>CLD 작업물 옮기기 — 트윈 서버(:8765) → SD 서버(:8766)</h1>
+  <p>SD 편집기를 별도 서버로 분리하면서 저장 위치(origin)가 바뀌었습니다. 이 페이지는 <b>예전 :8765 origin에 자동저장돼 있던 CLD 모델</b>을 파일로 꺼내줍니다.</p>
+
+  <div class="card" id="model-card">
+    <b>① 모델</b> <span id="model-status"></span><br />
+    <button id="dl-model" disabled>모델 JSON 다운로드</button>
+  </div>
+
+  <div class="card" id="ds-card">
+    <b>② CSV 데이터셋</b> <span id="ds-status"></span><br />
+    <button id="dl-ds" disabled>데이터셋 JSON 다운로드</button>
+    <div style="font-size:12px;color:#90a4b8;margin-top:6px">데이터셋은 새 편집기에서 원본 CSV를 다시 올리는 게 가장 확실합니다(참고용 백업).</div>
+  </div>
+
+  <div class="card">
+    <b>③ 새 편집기로 넣기</b>
+    <ol>
+      <li><code>http://localhost:8766/index.html</code> 열기 (또는 <code>start-sd.bat</code>)</li>
+      <li>상단 <b>불러오기</b> → 방금 받은 <code>모델 JSON</code> 선택</li>
+      <li>확인되면 이 페이지와 :8765의 옛 데이터는 무시해도 됩니다</li>
+    </ol>
+  </div>
+
+  <div class="card"><b>현재 :8765 저장 상태</b><pre id="dump"></pre></div>
+
+<script>
+const MODEL_KEY = 'redilab-cld-model';
+const DS_KEY    = 'redilab-cld-datasets';
+function download(name, text){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([text],{type:'application/json'}));
+  a.download=name; a.click(); URL.revokeObjectURL(a.href);
+}
+const model = localStorage.getItem(MODEL_KEY);
+const ds    = localStorage.getItem(DS_KEY);
+
+const ms=document.getElementById('model-status'), dbtn=document.getElementById('dl-model');
+if(model){
+  let nm='', cnt='';
+  try{ const o=JSON.parse(model); nm=o.name?` · 이름 "${o.name}"`:''; cnt=o.nodes?` · 변수 ${o.nodes.length}개 · 링크 ${(o.links||[]).length}개`:''; }catch{}
+  ms.innerHTML='<span class="ok">발견됨'+nm+cnt+'</span>'; dbtn.disabled=false;
+  dbtn.onclick=()=>download('cld-model-migrated.json', model);
+}else ms.innerHTML='<span class="no">없음 — 이 브라우저 :8765에 저장된 모델이 없습니다(작업한 적 없거나 다른 브라우저)</span>';
+
+const dss=document.getElementById('ds-status'), dsbtn=document.getElementById('dl-ds');
+if(ds && ds!=='[]'){
+  let n=0; try{ n=JSON.parse(ds).length; }catch{}
+  dss.innerHTML='<span class="ok">발견됨 · 데이터셋 '+n+'개</span>'; dsbtn.disabled=false;
+  dsbtn.onclick=()=>download('cld-datasets-migrated.json', ds);
+}else dss.innerHTML='<span class="no">없음</span>';
+
+document.getElementById('dump').textContent =
+  'model: '+(model?model.slice(0,400)+(model.length>400?' …':''):'(none)')+'\n\ndatasets: '+(ds?ds.slice(0,200)+(ds.length>200?' …':''):'(none)');
+</script>
+</body>
+</html>

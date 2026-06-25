@@ -39,7 +39,8 @@ html,body{ margin:0; height:100%; overflow:hidden; background:var(--bg); color:v
 
 /* canvas */
 #cv{ flex:1; display:block; background:
-  radial-gradient(130% 100% at 50% 0%, #1a3350 0%, #11243a 48%, #0a1422 100%); cursor:default; }
+  radial-gradient(130% 100% at 50% 0%, #1a3350 0%, #11243a 48%, #0a1422 100%); cursor:default;
+  user-select:none; -webkit-user-select:none; -moz-user-select:none; }
 #cv.linking{ cursor:crosshair; }
 #cv.panning{ cursor:grabbing; }
 .grid-line{ stroke:rgba(255,255,255,.04); stroke-width:1; }
@@ -68,7 +69,7 @@ html,body{ margin:0; height:100%; overflow:hidden; background:var(--bg); color:v
   cursor:pointer; user-select:none; }
 .sign.pos{ fill:var(--good); } .sign.neg{ fill:var(--bad); }
 .sign-bg{ fill:var(--panel-solid); stroke:var(--line); stroke-width:1; cursor:pointer; }
-.temp-link{ fill:none; stroke:var(--accent); stroke-width:2; stroke-dasharray:5 4; }
+.temp-link{ fill:none; stroke:var(--accent); stroke-width:2; stroke-dasharray:5 4; pointer-events:none; }
 
 /* loop badge on canvas */
 .loop-badge{ font-size:13px; font-weight:800; text-anchor:middle; dominant-baseline:middle; }

@@ -239,6 +239,27 @@ function renderDatasets() {
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
+// 컬럼명 ↔ 변수명 정규화(공백·밑줄·괄호·대소문자 무시)
+function normName(s) { return String(s || '').trim().toLowerCase().replace(/[\s_()]/g, ''); }
+// 같은 이름 컬럼을 같은 이름 변수에 자동 연결. role은 변수 성격으로 추정.
+//   overwrite=false면 이미 연결된 변수는 보존. 반환: {mapped, skipped, unmatched}
+function autoMapColumns(dsName, { overwrite = false } = {}) {
+  const ds = getDataset(dsName);
+  if (!ds) return { mapped: [], skipped: [], unmatched: [] };
+  const byNode = new Map(model.nodes.map(n => [normName(n.name), n]));
+  const cols = ds.columns.filter(c => c !== ds.timeCol);
+  const mapped = [], skipped = [], unmatched = [];
+  for (const c of cols) {
+    const n = byNode.get(normName(c));
+    if (!n) { unmatched.push(c); continue; }
+    if (n.csv && !overwrite) { skipped.push(n.name); continue; }
+    const role = (n.type === 'stock' || (n.eq && n.eq.trim())) ? 'observed' : 'driver';
+    n.csv = { dataset: dsName, column: c, role };
+    mapped.push({ name: n.name, column: c, role });
+  }
+  return { mapped, skipped, unmatched };
+}
+
 // ================= selection / inspector =================
 function select(type, id) {
   selection = id ? { type, id } : null;
