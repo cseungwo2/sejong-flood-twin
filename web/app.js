@@ -517,7 +517,7 @@ function main({ tmeta, theights, hand, bgeo }) {
   const LBL_COLOR={'국가하천':'#7fd0ff','지방하천':'#9ad6ff','소하천':'#bdeef2'};
   function mkLabel(text,color,size,weight){
     const d=document.createElement('div'); d.textContent=text;
-    d.style.cssText=`font:${weight} ${size}px/1.1 system-ui,sans-serif;color:${color};white-space:nowrap;`+
+    d.style.cssText=`font:${weight} ${size}px/1.1 'Pretendard','Pretendard Variable','Malgun Gothic',sans-serif;color:${color};white-space:nowrap;`+
       'text-shadow:0 1px 2px #000,0 0 5px rgba(0,0,0,.9);pointer-events:none;';
     return new CSS2DObject(d);
   }
